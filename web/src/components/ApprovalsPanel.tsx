@@ -9,7 +9,9 @@ export const ApprovalsPanel: React.FC<{
   deviceName?: (deviceId?: string) => string;
   /** Shown instead of rendering nothing when no request is pending. */
   emptyText?: string;
-}> = ({ deviceName, emptyText }) => {
+  /** Whether to show a browser confirmation dialog before approving. */
+  confirmOnApprove?: boolean;
+}> = ({ deviceName, emptyText, confirmOnApprove = true }) => {
   const [pending, setPending] = useState<Approval[]>([]);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -33,7 +35,7 @@ export const ApprovalsPanel: React.FC<{
   }, [refresh]);
 
   const decide = async (approval: Approval, approve: boolean) => {
-    if (approve) {
+    if (approve && confirmOnApprove) {
       const target = approval.deviceId ? deviceName?.(approval.deviceId) ?? approval.deviceId : 'host';
       const message =
         `${approval.requester} requests ${approval.destructive ? 'a DESTRUCTIVE operation' : 'an operation'} on ${target}:\n\n` +

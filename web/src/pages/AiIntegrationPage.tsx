@@ -458,7 +458,7 @@ export const AiIntegrationPage: React.FC = () => {
               </div>
             </div>
             <div className="helper-panel-body">
-              <ApprovalsPanel deviceName={deviceName} emptyText="Nothing to approve. Your phone can breathe easy." />
+              <ApprovalsPanel deviceName={deviceName} emptyText="Nothing to approve. Your phone can breathe easy." confirmOnApprove={false} />
               {history.length > 0 && (
                 <div className="table-container ai-history-container">
                   <table className="ai-history" aria-label="Agent requests">

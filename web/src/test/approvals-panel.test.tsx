@@ -82,4 +82,13 @@ describe('ApprovalsPanel', () => {
     expect(calls.some((c) => c.method === 'POST' && c.url.endsWith('/api/v1/approvals/ap1/deny'))).toBe(true);
     expect(confirm).not.toHaveBeenCalled();
   });
+
+  it('approves without a confirmation prompt when confirmOnApprove is false', async () => {
+    const confirm = vi.spyOn(window, 'confirm');
+    render(<ApprovalsPanel confirmOnApprove={false} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Approve' }));
+    await waitFor(() => expect(screen.queryByText('Uninstall Package')).toBeNull());
+    expect(calls.some((c) => c.method === 'POST' && c.url.endsWith('/api/v1/approvals/ap1/approve'))).toBe(true);
+    expect(confirm).not.toHaveBeenCalled();
+  });
 });
