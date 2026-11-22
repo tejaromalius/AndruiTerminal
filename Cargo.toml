@@ -1,0 +1,13 @@
+[workspace]
+members = [
+    "crates/andrui-core",
+    "crates/andrui-terminal",
+    "crates/andrui-automation",
+    "crates/andrui-media",
+]
+resolver = "2"
+
+# The single AndruiTerminal version. Every crate, the frontend build and the .deb use it.
+# Change it with scripts/bump-version.sh, not by hand.
+[workspace.package]
+version = "1.0.0"

@@ -1,0 +1,6 @@
+11-08 22:20:01.100  1000  1050  1050 I ActivityManager: Start proc 12345:org.andrui.helper/u0a120 for service {org.andrui.helper/org.andrui.helper.Service}
+11-08 22:20:01.150  1000  1050  1050 D PackageManager: Application package org.andrui.helper installed successfully
+11-08 22:20:01.200 12345 12345 12345 I AndruiHelper: Companion helper service initialized, listening for automation intents
+11-08 22:20:02.000  1000  1100  1100 D WindowManager: Focus moved to Window{d83765 u0 org.andrui.helper}
+11-08 22:20:02.500  1000  1050  1050 I ActivityManager: Displayed org.andrui.helper/.MainActivity: +450ms
+11-08 22:20:03.100 12345 12345 12345 D AndruiHelper: Heartbeat tick, active sessions: 1

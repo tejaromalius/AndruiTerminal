@@ -1,0 +1,8 @@
+package:com.android.settings
+package:com.android.systemui
+package:com.google.android.gms
+package:com.google.android.gsf
+package:com.android.providers.media
+package:com.android.shell
+package:com.android.vending
+package:org.andrui.helper

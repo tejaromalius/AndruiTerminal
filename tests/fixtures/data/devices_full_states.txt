@@ -1,0 +1,11 @@
+List of devices attached
+emulator-5554	device
+RF8M10ABCDE	device
+192.168.1.100:5555	device
+offline-device-01	offline
+unauth-device-02	unauthorized
+recovery-device-03	recovery
+sideload-device-04	sideload
+bootloader-device-05	bootloader
+auth-device-06	authorizing
+conn-device-07	connecting

@@ -1,0 +1,68 @@
+# Rust / Cargo
+/target/
+/crates/*/target/
+**/*.rs.bk
+*.pdb
+
+# Debian packaging
+*.deb
+*.changes
+*.buildinfo
+
+# Node / Frontend (Vite + TypeScript + Vitest)
+node_modules/
+/web/dist/
+/web/dist-ssr/
+.vite/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Android helper APK build artifacts
+/helper-apk/build/
+
+# Runtime state, local databases & artifacts
+/.runtime/
+/data/
+*.db-wal
+*.db-shm
+*.sqlite-wal
+*.sqlite-shm
+
+# Python
+**/__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.venv/
+venv/
+
+# Tests & coverage
+coverage/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+
+# Local AI / agent tooling
+/.claude/
+/AGENTS.md
+
+# Editors & OS
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db

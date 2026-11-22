@@ -1,0 +1,61 @@
+[
+  {
+    "id": "emulator-5554",
+    "state": "device",
+    "model": "sdk_gphone64_x86_64",
+    "product": "sdk_gphone64_x86_64",
+    "device": "emu64xa",
+    "transportId": 1
+  },
+  {
+    "id": "RF8M10ABCDE",
+    "state": "device",
+    "model": "SM_G9600",
+    "product": "starqltezc",
+    "device": "starqlte",
+    "transportId": 2
+  },
+  {
+    "id": "192.168.1.100:5555",
+    "state": "device",
+    "model": "Pixel_4",
+    "product": "coral",
+    "device": "coral",
+    "transportId": 3
+  },
+  {
+    "id": "offline-device-01",
+    "state": "offline",
+    "transportId": 4
+  },
+  {
+    "id": "unauth-device-02",
+    "state": "unauthorized",
+    "transportId": 5
+  },
+  {
+    "id": "recovery-device-03",
+    "state": "recovery",
+    "transportId": 6
+  },
+  {
+    "id": "sideload-device-04",
+    "state": "sideload",
+    "transportId": 7
+  },
+  {
+    "id": "bootloader-device-05",
+    "state": "bootloader",
+    "transportId": 8
+  },
+  {
+    "id": "auth-device-06",
+    "state": "authorizing",
+    "transportId": 9
+  },
+  {
+    "id": "conn-device-07",
+    "state": "connecting",
+    "transportId": 10
+  }
+]

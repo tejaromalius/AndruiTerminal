@@ -1,0 +1,11 @@
+List of devices attached
+emulator-5554          device product:sdk_gphone64_x86_64 model:sdk_gphone64_x86_64 device:emu64xa transport_id:1
+RF8M10ABCDE            device usb:1-1 product:starqltezc model:SM_G9600 device:starqlte transport_id:2
+192.168.1.100:5555     device product:coral model:Pixel_4 device:coral transport_id:3
+offline-device-01      offline transport_id:4
+unauth-device-02       unauthorized transport_id:5
+recovery-device-03     recovery transport_id:6
+sideload-device-04     sideload transport_id:7
+bootloader-device-05   bootloader transport_id:8
+auth-device-06         authorizing transport_id:9
+conn-device-07         connecting transport_id:10

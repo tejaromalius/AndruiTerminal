@@ -1,0 +1,16 @@
+[Unit]
+Description=AndruiTerminal Android workstation (http://127.0.0.1:19801)
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/andrui-terminal serve \
+    --bind 127.0.0.1:19801 \
+    --adb /usr/bin/adb \
+    --data-dir %h/.local/share/andrui-terminal \
+    --web-dir /usr/share/andrui-terminal/web \
+    --scrcpy-server /usr/share/andrui-terminal/scrcpy-server-v3.3.1 \
+    --helper-apk /usr/share/andrui-terminal/andrui-helper.apk
+Restart=on-failure
+
+[Install]
+WantedBy=default.target

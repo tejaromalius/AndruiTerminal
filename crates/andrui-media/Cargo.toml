@@ -1,0 +1,24 @@
+[package]
+name = "andrui-media"
+version.workspace = true
+edition = "2021"
+license = "GPL-3.0-or-later"
+
+
+[dependencies]
+axum = { version = "0.8", features = ["ws"] }
+tokio = { version = "1", features = ["full"] }
+tokio-stream = "0.1"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+base64 = "0.22"
+uuid = { version = "1.10", features = ["v4"] }
+tracing = "0.1"
+rand = "0.8"
+futures-util = "0.3"
+bytes = "1"
+sha2 = "0.10"
+
+[dev-dependencies]
+tempfile = "3"
+tower = { version = "0.5", features = ["util"] }

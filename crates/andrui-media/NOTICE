@@ -1,0 +1,9 @@
+AndruiTerminal Screen & Media Extension (andrui-media)
+Copyright 2024-2026 The AndruiTerminal Authors.
+
+This product includes software developed by Genymobile (https://github.com/Genymobile/scrcpy).
+Bundled Binary: scrcpy-server-v3.3.1
+Provenance: https://github.com/Genymobile/scrcpy/releases/download/v3.3.1/scrcpy-server-v3.3.1
+SHA-256: a0f70b20aa4998fbf658c94118cd6c8dab6abbb0647a3bdab344d70bc1ebcbb8
+License: Apache License, Version 2.0 (http://www.apache.org/licenses/LICENSE-2.0)
+Copyright (C) 2018-2024 Genymobile, Romain Vimont <rom@rom1v.com>

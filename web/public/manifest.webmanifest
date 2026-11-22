@@ -1,0 +1,34 @@
+{
+  "name": "AndruiTerminal Host Monitor",
+  "short_name": "AndruiHost",
+  "description": "Host Resource & Process Monitor over ADB reverse",
+  "start_url": "/?view=host",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#020617",
+  "icons": [
+    {
+      "src": "/logos/andrui-terminal-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logos/andrui-terminal-256x256.png",
+      "sizes": "256x256",
+      "type": "image/png"
+    },
+    {
+      "src": "/logos/andrui-terminal-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logos/andrui-terminal.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
