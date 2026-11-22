@@ -699,3 +699,75 @@ async fn coordinate_input_cannot_bypass_semantic_approval() {
     assert_eq!(status, StatusCode::BAD_REQUEST);
     assert_eq!(job_count(&h).await, 0);
 }
+
+#[tokio::test]
+async fn full_auto_mode_runs_all_mcp_operations_without_approval() {
+    let h = harness().await;
+    let (status, saved) = send(
+        &h.router,
+        Method::PUT,
+        "/api/v1/ai/policy",
+        Some(&h.token),
+        Some(json!({
+            "paused": false,
+            "readOnly": false,
+            "autoApprove": true,
+            "deviceIds": [],
+            "packages": [],
+            "operationPrefixes": []
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(saved["autoApprove"], true);
+
+    let (status, approval) = h
+        .post(
+            "/api/v1/approvals",
+            json!({
+                "requester": "mcp",
+                "operationId": "package.uninstall",
+                "deviceId": "test",
+                "parameters": { "package": "com.example" }
+            }),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CREATED);
+    assert_eq!(approval["status"], "not_required");
+    assert!(approval["jobId"].as_str().is_some());
+    assert_eq!(job_count(&h).await, 1);
+
+    let (status, _) = h.post("/api/v1/ai/stop", json!({})).await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, policy) = send(&h.router, Method::GET, "/api/v1/ai/policy", None, None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(policy["paused"], true);
+    assert_eq!(policy["autoApprove"], false);
+}
+
+#[tokio::test]
+async fn non_approval_mcp_requests_are_recorded_in_execution_queue() {
+    let h = harness().await;
+    let (status, recorded) = h
+        .post(
+            "/api/v1/approvals/record",
+            json!({
+                "requester": "mcp",
+                "operationId": "android_list_devices",
+                "operationLabel": "List Devices",
+                "parameters": {},
+                "display": "mcp android_list_devices"
+            }),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CREATED);
+    assert_eq!(recorded["status"], "not_required");
+
+    let (status, list) = send(&h.router, Method::GET, "/api/v1/approvals", None, None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(list
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|item| item["operationId"] == "android_list_devices" && item["status"] == "not_required"));
+}

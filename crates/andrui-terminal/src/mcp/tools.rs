@@ -201,7 +201,46 @@ pub async fn call(
         "android_ui_action" => ui_action(client, args).await,
         _ => return None,
     };
+    if matches!(
+        name,
+        "android_list_devices"
+            | "android_device_info"
+            | "android_list_operations"
+            | "android_preview_operation"
+            | "android_get_hierarchy"
+            | "android_screenshot"
+    ) {
+        record_direct_call(client, name, args, result.as_ref().err().map(|e| e.0.clone())).await;
+    }
     Some(result)
+}
+
+async fn record_direct_call(
+    client: &ApiClient,
+    name: &str,
+    args: &Map<String, Value>,
+    error: Option<String>,
+) {
+    let label = match name {
+        "android_list_devices" => "List Devices",
+        "android_device_info" => "Device Info",
+        "android_list_operations" => "List Operations",
+        "android_preview_operation" => "Preview Operation",
+        "android_get_hierarchy" => "UI Hierarchy",
+        "android_screenshot" => "Screenshot",
+        _ => name,
+    };
+    let device_id = args.get("deviceId").and_then(Value::as_str);
+    let body = json!({
+        "operationId": name,
+        "operationLabel": label,
+        "deviceId": device_id,
+        "parameters": args,
+        "display": format!("mcp {name}"),
+        "requester": REQUESTER,
+        "error": error,
+    });
+    let _ = client.post_json("/approvals/record", &body).await;
 }
 
 async fn list_operations(client: &ApiClient, args: &Map<String, Value>) -> ToolResult<Vec<Value>> {

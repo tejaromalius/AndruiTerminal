@@ -19,6 +19,8 @@ use std::time::Duration;
 pub struct AgentPolicy {
     pub paused: bool,
     pub read_only: bool,
+    #[serde(default)]
+    pub auto_approve: bool,
     pub device_ids: Vec<String>,
     pub packages: Vec<String>,
     pub operation_prefixes: Vec<String>,
@@ -291,6 +293,7 @@ async fn save_policy(
 async fn stop_agent(State(s): State<AppState>) -> ApiResult<Json<Value>> {
     let mut policy: AgentPolicy = s.db.read_value("experience.policy")?;
     policy.paused = true;
+    policy.auto_approve = false;
     s.db.write_value("experience.policy", &policy)?;
     for approval in s.approvals.list()? {
         if approval.status == crate::approvals::ApprovalStatus::Pending {

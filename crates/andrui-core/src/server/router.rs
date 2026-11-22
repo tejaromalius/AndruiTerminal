@@ -56,6 +56,7 @@ pub fn create_router(state: AppState) -> Router {
             "/approvals",
             get(list_approvals_handler).post(create_approval_handler),
         )
+        .route("/approvals/record", post(record_approval_handler))
         .route("/approvals/{id}", get(get_approval_handler))
         .route("/approvals/{id}/approve", post(approve_approval_handler))
         .route("/approvals/{id}/deny", post(deny_approval_handler))
@@ -350,15 +351,19 @@ async fn create_approval_handler(
         created_at: chrono::Utc::now().to_rfc3339(),
         resolved_at: None,
     };
-    if !requires_agent_approval(op) {
-        // Never pass `confirmed` for agent requests.
+    let policy: crate::experience::AgentPolicy = state.db.read_value("experience.policy")?;
+    if policy.auto_approve || !requires_agent_approval(op) {
         let job = state
             .job_manager
             .create_job(CreateJobRequest {
                 operation_id: req.operation_id,
                 device_id: req.device_id,
                 parameters: req.parameters,
-                confirmed: None,
+                confirmed: if policy.auto_approve && op.destructive {
+                    Some(true)
+                } else {
+                    None
+                },
                 source: Some("mcp".to_string()),
                 requester: Some(requester.to_string()),
             })
@@ -369,11 +374,72 @@ async fn create_approval_handler(
     }
     let approval = state.approvals.insert(approval)?;
     publish_approval(&state, &approval);
+    if approval.status == ApprovalStatus::Pending {
+        crate::approvals::notify::spawn_desktop_notification(state.clone(), approval.clone());
+    }
     Ok((StatusCode::CREATED, Json(approval)))
 }
 
 async fn list_approvals_handler(State(state): State<AppState>) -> ApiResult<Json<Vec<Approval>>> {
     Ok(Json(state.approvals.list()?))
+}
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RecordApprovalRequest {
+    operation_id: String,
+    operation_label: String,
+    #[serde(default)]
+    device_id: Option<String>,
+    #[serde(default)]
+    parameters: serde_json::Map<String, serde_json::Value>,
+    #[serde(default)]
+    display: String,
+    requester: String,
+    #[serde(default)]
+    error: Option<String>,
+}
+
+async fn record_approval_handler(
+    State(state): State<AppState>,
+    Json(req): Json<RecordApprovalRequest>,
+) -> ApiResult<(StatusCode, Json<Approval>)> {
+    let requester = req.requester.trim();
+    if requester.is_empty() || requester.len() > 64 {
+        return Err(ApiError::bad_request(
+            "INVALID_REQUESTER",
+            "requester must be 1-64 characters",
+        ));
+    }
+    let now = chrono::Utc::now().to_rfc3339();
+    let status = if req.error.is_some() {
+        ApprovalStatus::Failed
+    } else {
+        ApprovalStatus::NotRequired
+    };
+    let approval = Approval {
+        id: Uuid::new_v4().to_string(),
+        operation_id: req.operation_id.clone(),
+        operation_label: req.operation_label,
+        destructive: false,
+        severity: crate::approvals::Severity::Low,
+        device_id: req.device_id,
+        parameters: req.parameters,
+        preview: crate::models::CommandPreview {
+            program: "mcp".to_string(),
+            args: vec![req.operation_id],
+            display: req.display,
+        },
+        requester: requester.to_string(),
+        status,
+        job_id: None,
+        error: req.error,
+        created_at: now.clone(),
+        resolved_at: Some(now),
+    };
+    let approval = state.approvals.insert(approval)?;
+    publish_approval(&state, &approval);
+    Ok((StatusCode::CREATED, Json(approval)))
 }
 
 async fn get_approval_handler(
@@ -383,18 +449,25 @@ async fn get_approval_handler(
     Ok(Json(state.approvals.get(&id)?))
 }
 
-async fn approve_approval_handler(
-    State(state): State<AppState>,
-    Path(id): Path<String>,
-) -> ApiResult<Json<Approval>> {
-    let pending = state.approvals.get(&id)?;
+pub(crate) async fn resolve_approval_decision(
+    state: &AppState,
+    id: &str,
+    approve: bool,
+) -> ApiResult<Approval> {
+    if !approve {
+        let approval = state.approvals.resolve(id, ApprovalStatus::Denied)?;
+        publish_approval(state, &approval);
+        return Ok(approval);
+    }
+
+    let pending = state.approvals.get(id)?;
     crate::experience::check_policy(
         &state.db,
         &pending.operation_id,
         pending.device_id.as_deref(),
         &pending.parameters,
     )?;
-    let approval = state.approvals.resolve(&id, ApprovalStatus::Approved)?;
+    let approval = state.approvals.resolve(id, ApprovalStatus::Approved)?;
     let result = state
         .job_manager
         .create_job(CreateJobRequest {
@@ -407,28 +480,31 @@ async fn approve_approval_handler(
         })
         .await;
     let recorded = state.approvals.record_job(
-        &id,
+        id,
         result
             .as_ref()
             .map(|job| job.id.clone())
             .map_err(|e| e.to_string()),
     )?;
     if let Some(approval) = &recorded {
-        publish_approval(&state, approval);
+        publish_approval(state, approval);
     }
     result?;
-    recorded
-        .map(Json)
-        .ok_or_else(|| ApiError::not_found("APPROVAL_NOT_FOUND", "Approval not found"))
+    recorded.ok_or_else(|| ApiError::not_found("APPROVAL_NOT_FOUND", "Approval not found"))
+}
+
+async fn approve_approval_handler(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> ApiResult<Json<Approval>> {
+    Ok(Json(resolve_approval_decision(&state, &id, true).await?))
 }
 
 async fn deny_approval_handler(
     State(state): State<AppState>,
     Path(id): Path<String>,
 ) -> ApiResult<Json<Approval>> {
-    let approval = state.approvals.resolve(&id, ApprovalStatus::Denied)?;
-    publish_approval(&state, &approval);
-    Ok(Json(approval))
+    Ok(Json(resolve_approval_decision(&state, &id, false).await?))
 }
 
 /// Base URL of this server as the browser reached it (Host is validated as loopback).
@@ -501,6 +577,7 @@ async fn ai_mcp_access_handler(
             .collect();
     Ok(Json(serde_json::json!({
         "paused": policy.paused,
+        "autoApprove": policy.auto_approve,
         "deviceIds": policy.device_ids,
         "tools": tools,
         "operations": operations,
