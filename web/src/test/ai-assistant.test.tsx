@@ -43,11 +43,11 @@ describe('reviewed AI requests', () => {
     target = 'phone-a';
     setIsAiDrawerOpen.mockReset();
     setActivePage.mockReset();
-    vi.spyOn(api, 'experience').mockImplementation(async (path) => {
+    vi.spyOn(api, 'experience').mockImplementation(async (path, method, body) => {
       if (path === '/ai/provider') return provider as never;
       if (path === '/ai/evidence') return { deviceId: target, secret: 'remove-before-send' } as never;
       if (path === '/ai/assist') return result as never;
-      if (path === '/ai/policy') return { paused: false, readOnly: false, deviceIds: [], packages: [], operationPrefixes: [] } as never;
+      if (path === '/ai/policy') return (method === 'PUT' && body ? body : { paused: false, readOnly: false, deviceIds: [], packages: [], operationPrefixes: [] }) as never;
       return [] as never;
     });
   });
@@ -159,6 +159,32 @@ describe('reviewed AI requests', () => {
     await waitFor(() =>
       expect(vi.mocked(api.experience).mock.calls.some((c) => c[0] === '/ai/stop' && c[1] === 'POST')).toBe(true)
     );
+  });
+
+  it('enables and disables full auto mode after confirmation', async () => {
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true);
+    render(<AiConfiguration />);
+    const fullAutoBtn = await screen.findByRole('button', { name: 'Full auto mode' });
+    await waitFor(() => expect(fullAutoBtn).toBeEnabled());
+
+    fireEvent.click(fullAutoBtn);
+    expect(vi.mocked(api.experience).mock.calls.some((c) => c[0] === '/ai/policy' && c[1] === 'PUT')).toBe(false);
+
+    fireEvent.click(fullAutoBtn);
+    await waitFor(() =>
+      expect(
+        vi.mocked(api.experience).mock.calls.some(
+          (c) =>
+            c[0] === '/ai/policy' &&
+            c[1] === 'PUT' &&
+            (c[2] as { autoApprove?: boolean; paused?: boolean; readOnly?: boolean }).autoApprove === true &&
+            (c[2] as { paused?: boolean }).paused === false &&
+            (c[2] as { readOnly?: boolean }).readOnly === false
+        )
+      ).toBe(true)
+    );
+    expect(confirm).toHaveBeenCalledTimes(2);
+    expect(await screen.findByRole('button', { name: 'Disable full auto' })).toBeInTheDocument();
   });
 
   it('starts with manual model input and switches to running model selector on Auto detect', async () => {

@@ -210,6 +210,7 @@ export interface McpTestResult {
 /** GET /ai/mcp/access: MCP tools and per-operation agent access. */
 export interface McpAccess {
   paused: boolean;
+  autoApprove?: boolean;
   deviceIds: string[];
   tools: { name: string; description: string; approval: 'never' | 'perOperation' }[];
   operations: {

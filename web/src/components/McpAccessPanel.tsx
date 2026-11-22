@@ -20,8 +20,8 @@ const FILTERS: { id: Filter; label: string }[] = [
   { id: 'blocked', label: 'Blocked' },
 ];
 
-const accessOf = (op: McpAccess['operations'][number]): Access =>
-  op.blockedReason ? 'blocked' : op.severity === 'low' ? 'auto' : 'approval';
+const accessOf = (op: McpAccess['operations'][number], autoApprove = false): Access =>
+  op.blockedReason ? 'blocked' : autoApprove || op.severity === 'low' ? 'auto' : 'approval';
 
 /** What the MCP tools can reach, loaded when the panel is opened. */
 export const McpAccessPanel: React.FC = () => {
@@ -40,10 +40,10 @@ export const McpAccessPanel: React.FC = () => {
   };
 
   const counts = access?.operations.reduce<Record<Access, number>>(
-    (acc, op) => ({ ...acc, [accessOf(op)]: acc[accessOf(op)] + 1 }),
+    (acc, op) => ({ ...acc, [accessOf(op, access.autoApprove)]: acc[accessOf(op, access.autoApprove)] + 1 }),
     { auto: 0, approval: 0, blocked: 0 }
   );
-  const operations = access?.operations.filter((op) => filter === 'all' || accessOf(op) === filter) ?? [];
+  const operations = access?.operations.filter((op) => filter === 'all' || accessOf(op, access.autoApprove) === filter) ?? [];
 
   return (
     <details
@@ -136,7 +136,7 @@ export const McpAccessPanel: React.FC = () => {
                 </thead>
                 <tbody>
                   {operations.map((op) => {
-                    const a = ACCESS[accessOf(op)];
+                    const a = ACCESS[accessOf(op, access.autoApprove)];
                     return (
                       <tr key={op.id}>
                         <td className="ai-col-operation">
