@@ -271,4 +271,35 @@ describe('AiIntegrationPage', () => {
     expect(screen.getByText('(shell.exec)')).toBeTruthy();
     expect(screen.queryByText('(logcat.dump)')).toBeNull();
   });
+
+  it('paginates the execution queue when there are more than 15 requests', async () => {
+    const many = Array.from({ length: 18 }, (_, i) => ({
+      id: `req-${i + 1}`,
+      operationId: 'device.list',
+      operationLabel: `Request ${i + 1}`,
+      destructive: false,
+      severity: 'low' as const,
+      parameters: {},
+      preview: { program: 'mcp', args: [], display: `mcp req ${i + 1}` },
+      requester: 'mcp',
+      status: 'not_required' as const,
+      createdAt: '2026-11-22T20:00:00Z',
+    }));
+    globalThis.fetch = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith('/ai/status')) return jsonResponse(baseStatus);
+      if (url.endsWith('/approvals')) return jsonResponse(many);
+      return jsonResponse([]);
+    }) as typeof fetch;
+
+    renderPage();
+    expect(await screen.findByText('Request 1')).toBeTruthy();
+    expect(screen.queryByText('Request 16')).toBeNull();
+    expect(screen.getByText('Showing 1–15 of 18')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
+    expect(await screen.findByText('Request 16')).toBeTruthy();
+    expect(screen.queryByText('Request 1')).toBeNull();
+    expect(screen.getByText('Showing 16–18 of 18')).toBeTruthy();
+  });
 });

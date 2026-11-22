@@ -3,7 +3,7 @@ import { QuickStats } from '../components/AssessmentWidgets.js';
 import { PageTabs, usePageTab } from '../components/PageTabs.js';
 import { PageHeader } from '../components/PageHeader.js';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Bot, Plug, BookOpen, ListChecks, RefreshCw, AlertCircle, Activity, Send } from 'lucide-react';
+import { Bot, Plug, BookOpen, ListChecks, RefreshCw, AlertCircle, Activity, Send, ChevronLeft, ChevronRight } from 'lucide-react';
 import { api } from '../api/client.js';
 import { useWorkstation } from '../context/WorkstationContext.js';
 import { ApprovalsPanel } from '../components/ApprovalsPanel.js';
@@ -12,6 +12,8 @@ import { ParamList, SeverityBadge } from '../components/ApprovalParts.js';
 import type { AiStatus, Approval, McpTestResult } from '../types/api.js';
 
 type Busy = 'status' | 'mcp' | 'skill' | 'remove-mcp' | 'remove-skill' | 'test-mcp' | 'test-approval' | null;
+
+const QUEUE_PAGE_SIZE = 15;
 
 const STATUS_BADGE: Record<Approval['status'], string> = {
   pending: 'badge-warning',
@@ -96,6 +98,15 @@ export const AiIntegrationPage: React.FC = () => {
       setBusy(null);
     }
   };
+
+  const [historyPage, setHistoryPage] = useState(0);
+
+  const totalHistoryPages = Math.max(1, Math.ceil(history.length / QUEUE_PAGE_SIZE));
+  const currentHistoryPage = Math.min(historyPage, totalHistoryPages - 1);
+  const visibleHistory = useMemo(
+    () => history.slice(currentHistoryPage * QUEUE_PAGE_SIZE, (currentHistoryPage + 1) * QUEUE_PAGE_SIZE),
+    [history, currentHistoryPage]
+  );
 
   const deviceName = useMemo(() => {
     const names = new Map(devices.map((d) => [d.id, d.model?.replace(/_/g, ' ')]));
@@ -474,7 +485,7 @@ export const AiIntegrationPage: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {history.map((a) => (
+                      {visibleHistory.map((a) => (
                         <tr key={a.id}>
                           <td className="ai-col-time" title={new Date(a.createdAt).toLocaleString()}>
                             {new Date(a.createdAt).toLocaleTimeString()}
@@ -508,6 +519,36 @@ export const AiIntegrationPage: React.FC = () => {
                       ))}
                     </tbody>
                   </table>
+                </div>
+              )}
+              {totalHistoryPages > 1 && (
+                <div className="flex items-center justify-between gap-2 pt-2 text-xs text-muted">
+                  <span>
+                    Showing {currentHistoryPage * QUEUE_PAGE_SIZE + 1}–{Math.min(history.length, (currentHistoryPage + 1) * QUEUE_PAGE_SIZE)} of {history.length}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-xs"
+                      aria-label="Previous page"
+                      disabled={currentHistoryPage === 0}
+                      onClick={() => setHistoryPage((p) => Math.max(0, p - 1))}
+                    >
+                      <ChevronLeft size={12} />
+                    </button>
+                    <span className="px-2 font-mono">
+                      {currentHistoryPage + 1} / {totalHistoryPages}
+                    </span>
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-xs"
+                      aria-label="Next page"
+                      disabled={currentHistoryPage + 1 >= totalHistoryPages}
+                      onClick={() => setHistoryPage((p) => Math.min(totalHistoryPages - 1, p + 1))}
+                    >
+                      <ChevronRight size={12} />
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
