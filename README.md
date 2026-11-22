@@ -13,36 +13,36 @@
     <img src="https://img.shields.io/badge/frontend-React%20%2B%20TypeScript-3178c6?logo=react" alt="Frontend: React + TypeScript">
   </p>
   <p>
-    <a href="#-install">Install</a> ·
-    <a href="#-what-you-can-do">Features</a> ·
-    <a href="#-a-closer-look">Screenshots</a> ·
-    <a href="#-documentation">Docs</a> ·
-    <a href="#-development">Development</a>
+    <a href="#install">Install</a> ·
+    <a href="#what-you-can-do">Features</a> ·
+    <a href="#a-closer-look">Screenshots</a> ·
+    <a href="#documentation">Docs</a> ·
+    <a href="#development">Development</a>
   </p>
   <img src="docs/images/overview.png" alt="AndruiTerminal device workbench with connected devices and the discovery radar" width="900">
 </div>
 
 ---
 
-## ✨ What you can do
+## What you can do
 
 | Area | What it does |
 |---|---|
-| 📱 **Devices** | See every device in every state, connect over USB or Wi-Fi, pair with a code, and spot phones advertising wireless debugging on a live discovery radar. |
-| 🖥️ **Screen mirroring** | Watch and control the phone live (scrcpy 3.3.1, decoded in the browser), with navigation keys, text input, clipboard sync and recording. |
-| ⌨️ **Shell** | A real interactive terminal on the device, plus one-shot commands with exit codes. |
-| 📊 **Diagnostics** | Live CPU, memory, battery, thermal and network charts, dumpsys and system properties. |
-| 📦 **Apps & files** | Install, launch, stop and inspect packages; browse an app's SQLite databases table by table and edit rows; browse, preview and transfer files. |
-| 🧠 **AI assistance** | Reviewed diagnostic chat, local/remote HTTP model gateways, workflow proposals, MCP agent permissions and saved reports. |
-| 🔗 **Integrations** | Device profiles, TV remote, owned AVD lifecycle, workflow CLI/JUnit and semantic Appium export. |
-| 🤖 **Automation** | UI hierarchy inspection, semantic actions, OCR, image matching, action recording/replay and multi-step workflows. |
-| 🧾 **Jobs** | Every operation runs as a job with streamed output, status, timing and downloadable artifacts, all searchable. |
-| 🎨 **Themes** | Five color themes, each in dark and light. |
+| **Devices** | See every device in every state, connect over USB or Wi-Fi, pair with a code, and spot phones advertising wireless debugging on a live discovery radar. |
+| **Screen mirroring** | Watch and control the phone live (scrcpy 3.3.1, decoded in the browser), with navigation keys, text input, clipboard sync and recording. |
+| **Shell** | A real interactive terminal on the device, plus one-shot commands with exit codes. |
+| **Diagnostics** | Live CPU, memory, battery, thermal and network charts, dumpsys and system properties. |
+| **Apps & files** | Install, launch, stop and inspect packages; browse an app's SQLite databases table by table and edit rows; browse, preview and transfer files. |
+| **AI assistance** | Reviewed diagnostic chat, local/remote HTTP model gateways, workflow proposals, MCP agent permissions and saved reports. |
+| **Integrations** | Device profiles, TV remote, owned AVD lifecycle, workflow CLI/JUnit and semantic Appium export. |
+| **Automation** | UI hierarchy inspection, semantic actions, OCR, image matching, action recording/replay and multi-step workflows. |
+| **Jobs** | Every operation runs as a job with streamed output, status, timing and downloadable artifacts, all searchable. |
+| **Themes** | Five color themes, each in dark and light. |
 
 > [!NOTE]
 > AndruiTerminal runs as **your user** and listens on **127.0.0.1 only**. Nothing is exposed to the network, nothing runs as root, and it uses your distribution's `adb`.
 
-## 🚀 Install
+## Install
 
 AndruiTerminal is packaged for Debian and Ubuntu. `apt` pulls in `adb`, `tesseract-ocr` and the Android USB udev rules.
 
@@ -65,7 +65,7 @@ Open **<http://127.0.0.1:19801>**. Your data lives in `~/.local/share/andrui-ter
 <img src="docs/images/wireless.png" alt="Your devices: discovery radar with nearby phones, plus connect and pair forms" width="760">
 </div>
 
-## 📸 A closer look
+## A closer look
 
 <table>
   <tr>
@@ -80,7 +80,7 @@ Open **<http://127.0.0.1:19801>**. Your data lives in `~/.local/share/andrui-ter
 
 <sub>Screenshots use the bundled fake ADB (`tests/fixtures/`) with sample devices and data; no real phone is shown.</sub>
 
-## 📚 Documentation
+## Documentation
 
 | Guide | What's inside |
 |---|---|
@@ -91,7 +91,7 @@ Open **<http://127.0.0.1:19801>**. Your data lives in `~/.local/share/andrui-ter
 | [AI & device enhancements](docs/UX_AI_DEVICE_ENHANCEMENTS.md) | Behavior, setup, integrations and verification limits |
 | [Feature coverage](docs/FEATURE_COVERAGE.md) | What's implemented, what's verified, known limits |
 
-## 🛠️ Development
+## Development
 
 ```bash
 cargo build --bin andrui-terminal
@@ -125,7 +125,7 @@ The version lives once in the root `Cargo.toml`. To release:
 > [!IMPORTANT]
 > AndruiTerminal is a working workstation, not yet a complete replacement for every ADB command and flag. The typed command catalog was created against reference **ADB 34.0.4** (`1.0.41`). Operations like `forward --list` are marked as **Partial** in [Feature coverage](docs/FEATURE_COVERAGE.md) because while a dedicated command adapter exists, it executes as a raw job without structured JSON modeling, interactive tunnel lifecycle management, or multi-device serial attribution.
 
-## 📄 License
+## License
 
 AndruiTerminal is free software under the **GNU General Public License v3.0 or later**; see [LICENSE](LICENSE). The bundled scrcpy server is Apache-2.0 ([LICENSE](crates/andrui-media/LICENSE), [NOTICE](crates/andrui-media/NOTICE)). Notices for bundled Rust crates and npm packages are generated by `scripts/third-party-licenses.py` and installed as `/usr/share/doc/andrui-terminal/THIRD-PARTY-LICENSES`.
 
