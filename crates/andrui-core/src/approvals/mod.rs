@@ -15,6 +15,8 @@ use serde::{Deserialize, Serialize};
 use crate::error::{ApiError, ApiResult};
 use crate::models::{CommandPreview, Operation};
 
+pub mod notify;
+
 const PENDING_TTL: Duration = Duration::from_secs(10 * 60);
 const MAX_PENDING: usize = 100;
 const MAX_ENTRIES: usize = 200;

@@ -3,6 +3,7 @@ Description=AndruiTerminal Android workstation (http://127.0.0.1:19801)
 After=network.target
 
 [Service]
+PassEnvironment=DBUS_SESSION_BUS_ADDRESS DISPLAY WAYLAND_DISPLAY XDG_RUNTIME_DIR
 ExecStart=/usr/bin/andrui-terminal serve \
     --bind 127.0.0.1:19801 \
     --adb /usr/bin/adb \
