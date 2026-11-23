@@ -120,18 +120,21 @@ export const FilesPage: React.FC = () => {
 
   const handleUploadFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (file) void uploadFile(file);
   };
 
   const uploadFile = async (file: File) => {
     if (!selectedDeviceId) return;
     try {
-      setLoading(true);
-      const artifact = await api.uploadArtifact(file);
-      // Trigger push operation
       const op = findOperation('file.push');
       if (!op) throw new Error('File push is unavailable in the operation catalog');
-      const job = await runOperation(op.id, { local: artifact.id, remote: `${currentPath.replace(/\/$/, '')}/${file.name}` });
+      const remote = `${currentPath.replace(/\/$/, '')}/${file.name}`;
+      if (op.destructive && !window.confirm(`Upload ${file.name} to ${remote} on ${selectedDeviceId}? Any existing file at this destination will be overwritten.`)) return;
+      setLoading(true);
+      setError(null);
+      const artifact = await api.uploadArtifact(file);
+      const job = await runOperation(op.id, { local: artifact.id, remote }, op.destructive);
       await api.waitForSuccessfulJob(job.id);
       await loadDirectory(currentPath);
     } catch (err: unknown) {

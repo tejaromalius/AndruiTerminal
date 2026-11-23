@@ -18,21 +18,60 @@ const listing = (path: string) => ({
 
 function setup() {
   const openOperationModal = vi.fn();
+  const runOperation = vi.fn().mockResolvedValue({ id: 'push-job' });
   vi.spyOn(WorkstationContext, 'useWorkstation').mockReturnValue({
     selectedDeviceId: 'dev-1',
-    findOperation: (id: string) => ({ id, label: id } as Operation),
+    findOperation: (id: string) => ({ id, label: id, destructive: id === 'file.push' } as Operation),
     openOperationModal,
-    runOperation: vi.fn(),
+    runOperation,
     jobs: [],
   } as any);
   vi.spyOn(api, 'getStats').mockResolvedValue({ deviceId: 'dev-1', scope: 'files', collectedAt: 1, sections: {} } as any);
   const getFiles = vi.spyOn(api, 'getFiles').mockImplementation(async (_d, path) => listing(path));
-  return { openOperationModal, getFiles };
+  return { openOperationModal, getFiles, runOperation };
 }
 
 afterEach(() => { vi.restoreAllMocks(); localStorage.clear(); sessionStorage.clear(); });
 
 describe('FilesPage workbench', () => {
+
+  it.each(['picker', 'drop'])('confirms and pushes an upload from the %s to the current directory', async (source) => {
+    const { runOperation, getFiles } = setup();
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const upload = vi.spyOn(api, 'uploadArtifact').mockResolvedValue({ id: 'upload-id' } as any);
+    const completed = vi.spyOn(api, 'waitForSuccessfulJob').mockResolvedValue({ id: 'push-job' } as any);
+    const download = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    const { container } = render(<FilesPage />);
+    const list = await screen.findByRole('listbox', { name: 'Folder entries' });
+    await within(list).findByText('notes.txt');
+    fireEvent.click(screen.getByRole('button', { name: '/sdcard/Download' }));
+    await within(list).findByText('a.apk');
+    const file = new File(['hello'], 'hello.txt');
+    if (source === 'picker') {
+      fireEvent.change(container.querySelector('input[type="file"]')!, { target: { files: [file] } });
+    } else {
+      fireEvent.drop(container.querySelector('.app-workbench')!, { dataTransfer: { files: [file] } });
+    }
+    await waitFor(() => expect(completed).toHaveBeenCalledWith('push-job'));
+    expect(confirm).toHaveBeenCalledWith(expect.stringContaining('/sdcard/Download/hello.txt on dev-1'));
+    expect(upload).toHaveBeenCalledWith(file);
+    expect(runOperation).toHaveBeenCalledWith('file.push', { local: 'upload-id', remote: '/sdcard/Download/hello.txt' }, true);
+    await waitFor(() => expect(getFiles.mock.calls.filter(([, path]) => path === '/sdcard/Download')).toHaveLength(2));
+    expect(download).not.toHaveBeenCalled();
+  });
+
+  it('does not stage or push a file when upload confirmation is cancelled', async () => {
+    const { runOperation } = setup();
+    vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const upload = vi.spyOn(api, 'uploadArtifact');
+    const { container } = render(<FilesPage />);
+    await screen.findByText('notes.txt');
+    fireEvent.change(container.querySelector('input[type="file"]')!, { target: { files: [new File(['hello'], 'hello.txt')] } });
+    expect(window.confirm).toHaveBeenCalled();
+    expect(upload).not.toHaveBeenCalled();
+    expect(runOperation).not.toHaveBeenCalled();
+  });
+
   it('keeps the path toolbar and jump chips, and lists folder entries', async () => {
     setup();
     render(<FilesPage />);
