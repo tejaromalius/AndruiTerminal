@@ -154,6 +154,14 @@ export class ScreenCanvasRecorder {
       let settled = false;
       let stopFallbackTimer: ReturnType<typeof setTimeout> | null = null;
 
+      const stopVideoTracks = () => {
+        // Stop only canvas video tracks; do NOT kill shared audio track
+        if (this.stream) {
+          this.stream.getVideoTracks().forEach((track) => track.stop());
+          this.stream = null;
+        }
+      };
+
       const finalize = () => {
         if (settled) return;
         settled = true;
@@ -171,11 +179,7 @@ export class ScreenCanvasRecorder {
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
         const filename = `screen-recording-${timestamp}.${ext}`;
 
-        // Stop only canvas video tracks; do NOT kill shared audio track
-        if (this.stream) {
-          this.stream.getVideoTracks().forEach((track) => track.stop());
-          this.stream = null;
-        }
+        stopVideoTracks();
 
         resolve({
           blob,
@@ -194,10 +198,7 @@ export class ScreenCanvasRecorder {
           stopFallbackTimer = null;
         }
         this.isRecording = false;
-        if (this.stream) {
-          this.stream.getVideoTracks().forEach((track) => track.stop());
-          this.stream = null;
-        }
+        stopVideoTracks();
         reject(err);
       };
 
@@ -216,7 +217,7 @@ export class ScreenCanvasRecorder {
       };
 
       stopFallbackTimer = setTimeout(() => {
-        if (this.recordedChunks.length > 0) {
+        if (this.recordedChunks.length > 0 || recorder.state === 'inactive') {
           finalize();
         } else {
           fail(new Error('Timed out waiting for MediaRecorder to stop'));
@@ -224,10 +225,9 @@ export class ScreenCanvasRecorder {
       }, 3000);
 
       try {
-        if (recorder.state === 'recording' && typeof recorder.requestData === 'function') {
-          recorder.requestData();
-        }
         recorder.stop();
+        // Signal end-of-stream on canvas video tracks so MediaRecorder flushes without waiting for a new frame
+        stopVideoTracks();
       } catch (err) {
         if (this.recordedChunks.length > 0) {
           finalize();
