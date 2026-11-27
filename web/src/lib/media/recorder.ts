@@ -33,18 +33,26 @@ export class ScreenCanvasRecorder {
     );
   }
 
-  static getSupportedMimeType(): string {
+  static getSupportedMimeType(hasAudio = true): string {
     if (typeof MediaRecorder === 'undefined' || !MediaRecorder.isTypeSupported) {
       return 'video/webm';
     }
 
-    const types = [
-      'video/webm;codecs=vp9,opus',
-      'video/webm;codecs=vp8,opus',
-      'video/webm',
-      'video/mp4;codecs=avc1',
-      'video/mp4',
-    ];
+    const types = hasAudio
+      ? [
+          'video/webm;codecs=vp9,opus',
+          'video/webm;codecs=vp8,opus',
+          'video/webm',
+          'video/mp4;codecs=avc1',
+          'video/mp4',
+        ]
+      : [
+          'video/webm;codecs=vp9',
+          'video/webm;codecs=vp8',
+          'video/webm',
+          'video/mp4;codecs=avc1',
+          'video/mp4',
+        ];
 
     for (const type of types) {
       if (MediaRecorder.isTypeSupported(type)) {
@@ -72,7 +80,9 @@ export class ScreenCanvasRecorder {
     this.options = options;
     this.recordedChunks = [];
     this.totalBytes = 0;
-    this.sharedAudioTrack = audioTrack || null;
+    const liveAudioTrack =
+      audioTrack && audioTrack.readyState !== 'ended' ? audioTrack : undefined;
+    this.sharedAudioTrack = liveAudioTrack || null;
 
     const captureStream = (canvas as any).captureStream?.bind(canvas);
     if (!captureStream) {
@@ -80,11 +90,11 @@ export class ScreenCanvasRecorder {
     }
 
     this.stream = captureStream(fps);
-    if (audioTrack && this.stream) {
-      this.stream.addTrack(audioTrack);
+    if (liveAudioTrack && this.stream) {
+      this.stream.addTrack(liveAudioTrack);
     }
 
-    const mimeType = ScreenCanvasRecorder.getSupportedMimeType();
+    const mimeType = ScreenCanvasRecorder.getSupportedMimeType(Boolean(liveAudioTrack));
     const recorderOptions: MediaRecorderOptions = mimeType ? { mimeType } : {};
 
     try {
@@ -122,6 +132,8 @@ export class ScreenCanvasRecorder {
 
     this.mediaRecorder.start(1000); // 1s slice
     this.isRecording = true;
+    // Push an initial frame so static canvases begin encoding immediately
+    (this.stream?.getVideoTracks()[0] as any)?.requestFrame?.();
 
     // Bound recording time (default 5 minutes)
     const maxDurationMs = options.maxDurationMs ?? 300_000;
@@ -225,9 +237,8 @@ export class ScreenCanvasRecorder {
       }, 3000);
 
       try {
+        (this.stream?.getVideoTracks()[0] as any)?.requestFrame?.();
         recorder.stop();
-        // Signal end-of-stream on canvas video tracks so MediaRecorder flushes without waiting for a new frame
-        stopVideoTracks();
       } catch (err) {
         if (this.recordedChunks.length > 0) {
           finalize();

@@ -194,13 +194,52 @@ describe('ScreenCanvasRecorder', () => {
     recorder.start(mockCanvas, 30);
 
     const stopPromise = recorder.stop();
-    expect(videoTrackStopped).toBe(true);
-
     await vi.advanceTimersByTimeAsync(3000);
     const result = await stopPromise;
+    expect(videoTrackStopped).toBe(true);
     expect(result.sizeBytes).toBe(0);
     expect(recorder.active).toBe(false);
     vi.useRealTimers();
+  });
+
+  it('selects video-only MIME type when no audio track is present and requests frames', async () => {
+    const isTypeSupportedSpy = vi.fn((t: string) => t === 'video/webm;codecs=vp9,opus' || t === 'video/webm;codecs=vp9');
+    const requestFrame = vi.fn();
+    const mockCanvas = {
+      captureStream: () => ({
+        addTrack: vi.fn(),
+        getVideoTracks: () => [{ stop: vi.fn(), requestFrame }],
+      }),
+    } as unknown as HTMLCanvasElement;
+
+    let capturedOptions: MediaRecorderOptions | undefined;
+    class OptionCapturingMediaRecorder {
+      static isTypeSupported = isTypeSupportedSpy;
+      state = 'recording';
+      mimeType = 'video/webm;codecs=vp9';
+      ondataavailable: ((e: any) => void) | null = null;
+      onstop: (() => void) | null = null;
+      constructor(_stream: MediaStream, options: MediaRecorderOptions = {}) {
+        capturedOptions = options;
+      }
+      start() {}
+      stop() {
+        this.state = 'inactive';
+        this.ondataavailable?.({ data: new Blob([new Uint8Array(64)]) });
+        setTimeout(() => this.onstop?.(), 0);
+      }
+    }
+    (globalThis as any).MediaRecorder = OptionCapturingMediaRecorder;
+    (globalThis as any).HTMLCanvasElement.prototype.captureStream = mockCanvas.captureStream;
+
+    const recorder = new ScreenCanvasRecorder();
+    recorder.start(mockCanvas, 30);
+    expect(capturedOptions?.mimeType).toBe('video/webm;codecs=vp9');
+    expect(requestFrame).toHaveBeenCalledTimes(1);
+
+    const result = await recorder.stop();
+    expect(requestFrame).toHaveBeenCalledTimes(2);
+    expect(result.sizeBytes).toBe(64);
   });
 });
 
