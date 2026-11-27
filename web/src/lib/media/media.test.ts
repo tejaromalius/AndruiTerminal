@@ -165,6 +165,43 @@ describe('ScreenCanvasRecorder', () => {
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(autoStopReason).toBe('maxBytes');
   });
+
+  it('finalizes when MediaRecorder becomes inactive without firing onstop and stops video tracks on stop()', async () => {
+    vi.useFakeTimers();
+    let videoTrackStopped = false;
+    const mockCanvas = {
+      captureStream: () => ({
+        addTrack: vi.fn(),
+        getVideoTracks: () => [{ stop: () => { videoTrackStopped = true; } }],
+      }),
+    } as unknown as HTMLCanvasElement;
+
+    class SilentStopMediaRecorder {
+      state = 'recording';
+      mimeType = 'video/webm';
+      ondataavailable: ((e: any) => void) | null = null;
+      onstop: (() => void) | null = null;
+      start() {}
+      stop() {
+        this.state = 'inactive';
+        // Intentionally omit onstop()
+      }
+    }
+    (globalThis as any).MediaRecorder = SilentStopMediaRecorder;
+    (globalThis as any).HTMLCanvasElement.prototype.captureStream = mockCanvas.captureStream;
+
+    const recorder = new ScreenCanvasRecorder();
+    recorder.start(mockCanvas, 30);
+
+    const stopPromise = recorder.stop();
+    expect(videoTrackStopped).toBe(true);
+
+    await vi.advanceTimersByTimeAsync(3000);
+    const result = await stopPromise;
+    expect(result.sizeBytes).toBe(0);
+    expect(recorder.active).toBe(false);
+    vi.useRealTimers();
+  });
 });
 
 describe('Media API Client & CSRF Sharing', () => {
