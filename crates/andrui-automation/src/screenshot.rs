@@ -8,8 +8,9 @@ use axum::{
 use base64::prelude::*;
 use serde::Deserialize;
 
+use crate::adb::AdbExecutor;
 use crate::error::ApiError;
-use crate::state::AppState;
+use crate::state::{AppState, AutomationSession};
 
 #[derive(Deserialize)]
 pub struct ScreenshotQuery {
@@ -20,6 +21,8 @@ pub struct ScreenshotQuery {
     pub marks: Option<bool>,
     /// `png` (default) or, with marks, `json` → `{pngBase64, nodes, capturedAt}`.
     pub format: Option<String>,
+    /// Force (`true`) or disable (`false`) ADB `screencap` fallback. Default: automatic fallback when no helper session is active.
+    pub fallback: Option<bool>,
 }
 
 #[derive(Deserialize)]
@@ -65,13 +68,15 @@ pub async fn get_screenshot(
         }
     };
 
-    let (mut image_bytes, secure) = capture_png(&state, device_id).await?;
+    let (mut image_bytes, secure, used_fallback) =
+        capture_png(&state, device_id, query.fallback).await?;
     let (secure_window, secure_detection) = secure_headers(secure.as_ref());
 
     let mut marks_count = None;
     if query.marks == Some(true) {
         // Captured right after the screenshot; the two are not atomic.
-        let hierarchy = crate::hierarchy::fetch_hierarchy(&state, device_id, false).await?;
+        let hierarchy =
+            crate::hierarchy::fetch_hierarchy(&state, device_id, used_fallback).await?;
         let compact = crate::hierarchy::compact_response(hierarchy)?;
         image_bytes = crate::marks::draw_marks(&image_bytes, &compact.nodes)
             .map_err(|e| ApiError::internal("marks_render_failed", e))?;
@@ -104,13 +109,40 @@ pub async fn get_screenshot(
     })
 }
 
-/// PNG bytes from the helper session plus its FLAG_SECURE report.
+/// PNG bytes from the helper session (plus its FLAG_SECURE report) or ADB `screencap` fallback.
+/// Returns `(png_bytes, secure_report, used_fallback)`.
 async fn capture_png(
     state: &AppState,
     device_id: &str,
-) -> Result<(Vec<u8>, Option<serde_json::Value>), ApiError> {
-    let session = state.get_device_session(device_id).await?;
+    fallback: Option<bool>,
+) -> Result<(Vec<u8>, Option<serde_json::Value>, bool), ApiError> {
+    if fallback == Some(true) {
+        let bytes = AdbExecutor::capture_screenshot_fallback(&state.config.adb_path, device_id)
+            .await?;
+        return Ok((bytes, None, true));
+    }
 
+    let session = match state.get_device_session(device_id).await {
+        Ok(session) => session,
+        Err(err) => {
+            if fallback == Some(false) {
+                return Err(err);
+            }
+            let bytes =
+                AdbExecutor::capture_screenshot_fallback(&state.config.adb_path, device_id).await?;
+            return Ok((bytes, None, true));
+        }
+    };
+
+    capture_png_from_helper(state, &session)
+        .await
+        .map(|(bytes, secure)| (bytes, secure, false))
+}
+
+async fn capture_png_from_helper(
+    state: &AppState,
+    session: &AutomationSession,
+) -> Result<(Vec<u8>, Option<serde_json::Value>), ApiError> {
     let url = session.helper_url("/screenshot");
     let resp = state
         .http_client

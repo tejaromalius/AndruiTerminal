@@ -132,8 +132,12 @@ pub fn definitions() -> Vec<Value> {
         ),
         tool(
             "android_screenshot",
-            "Capture the screen as PNG. With marks=true, interactive nodes are boxed and numbered with the ids from the compact hierarchy, and the node list is returned too. Requires a running automation helper session.",
-            json!({"deviceId": device, "marks": {"type": "boolean"}}),
+            "Capture the screen as PNG. With marks=true, interactive nodes are boxed and numbered with the ids from the compact hierarchy, and the node list is returned too. Uses the active automation helper session or falls back to ADB screencap.",
+            json!({
+                "deviceId": device,
+                "marks": {"type": "boolean"},
+                "fallback": {"type": "boolean", "description": "Force ADB screencap fallback (true) or require an active helper session (false)"},
+            }),
             &["deviceId"],
         ),
         tool(
