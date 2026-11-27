@@ -56,8 +56,121 @@ fn is_true(node: roxmltree::Node, name: &str) -> bool {
     node.attribute(name) == Some("true")
 }
 
+fn is_valid_xml_char(c: char) -> bool {
+    matches!(
+        c as u32,
+        0x09 | 0x0A | 0x0D | 0x20..=0xD7FF | 0xE000..=0xFFFD | 0x10000..=0x10FFFF
+    )
+}
+
+fn valid_xml_entity(rest: &str) -> Option<usize> {
+    for named in ["amp;", "lt;", "gt;", "quot;", "apos;"] {
+        if rest.starts_with(named) {
+            return Some(named.len());
+        }
+    }
+    let after_hash = rest.strip_prefix('#')?;
+    let semi = after_hash.find(';')?;
+    if semi == 0 || semi > 10 {
+        return None;
+    }
+    let digits = &after_hash[..semi];
+    let code = if let Some(hex) = digits.strip_prefix('x').or_else(|| digits.strip_prefix('X')) {
+        if hex.is_empty() {
+            return None;
+        }
+        u32::from_str_radix(hex, 16).ok()?
+    } else {
+        digits.parse::<u32>().ok()?
+    };
+    let ch = char::from_u32(code)?;
+    if is_valid_xml_char(ch) {
+        Some(1 + semi + 1)
+    } else {
+        None
+    }
+}
+
+/// Sanitize malformed `uiautomator dump` XML (trailing status text, invalid control chars,
+/// unescaped `&` or `<` in attributes, or invalid numeric character references).
+fn sanitize_hierarchy_xml(xml: &str) -> String {
+    let start = match (xml.find("<?xml"), xml.find("<hierarchy")) {
+        (Some(x), Some(h)) if x < h => x,
+        (_, Some(h)) => h,
+        (Some(x), None) => x,
+        (None, None) => 0,
+    };
+    let end = xml
+        .rfind("</hierarchy>")
+        .map(|idx| idx + "</hierarchy>".len())
+        .unwrap_or(xml.len());
+    let slice = if start < end { &xml[start..end] } else { xml };
+
+    let mut out = String::with_capacity(slice.len());
+    let mut in_tag = false;
+    let mut attr_quote: Option<char> = None;
+    let mut chars = slice.char_indices().peekable();
+
+    while let Some((idx, ch)) = chars.next() {
+        if !is_valid_xml_char(ch) {
+            continue;
+        }
+        if let Some(q) = attr_quote {
+            if ch == q {
+                attr_quote = None;
+                out.push(ch);
+            } else if ch == '<' {
+                out.push_str("&lt;");
+            } else if ch == '&' {
+                let rest = &slice[idx + 1..];
+                if let Some(len) = valid_xml_entity(rest) {
+                    out.push('&');
+                    out.push_str(&rest[..len]);
+                    for _ in 0..rest[..len].chars().count() {
+                        chars.next();
+                    }
+                } else {
+                    out.push_str("&amp;");
+                }
+            } else {
+                out.push(ch);
+            }
+        } else {
+            if ch == '<' {
+                in_tag = true;
+            } else if ch == '>' && in_tag {
+                in_tag = false;
+            } else if in_tag && (ch == '"' || ch == '\'') {
+                attr_quote = Some(ch);
+            } else if ch == '&' {
+                let rest = &slice[idx + 1..];
+                if let Some(len) = valid_xml_entity(rest) {
+                    out.push('&');
+                    out.push_str(&rest[..len]);
+                    for _ in 0..rest[..len].chars().count() {
+                        chars.next();
+                    }
+                    continue;
+                } else {
+                    out.push_str("&amp;");
+                    continue;
+                }
+            }
+            out.push(ch);
+        }
+    }
+    out
+}
+
 pub fn compact_nodes(xml: &str) -> Result<Vec<CompactNode>, String> {
-    let doc = roxmltree::Document::parse(xml).map_err(|e| e.to_string())?;
+    let sanitized;
+    let doc = match roxmltree::Document::parse(xml) {
+        Ok(doc) => doc,
+        Err(_) => {
+            sanitized = sanitize_hierarchy_xml(xml);
+            roxmltree::Document::parse(&sanitized).map_err(|e| e.to_string())?
+        }
+    };
     let mut nodes = Vec::new();
     for node in doc.descendants().filter(|n| n.has_tag_name("node")) {
         if node.attribute("visible-to-user") == Some("false") {
@@ -210,5 +323,17 @@ mod tests {
         assert!(compact_nodes("<hierarchy><node").is_err());
         assert_eq!(parse_bounds("[1,2][3,4]"), Some([1, 2, 3, 4]));
         assert_eq!(parse_bounds("[1,2][3]"), None);
+    }
+
+    #[test]
+    fn sanitizes_malformed_uiautomator_dump_xml() {
+        let noisy = "adb warning\n<?xml version='1.0' encoding='UTF-8' standalone='yes' ?>\
+            <hierarchy rotation=\"0\">\
+            <node text=\"AT&T <Live>\x00\x1b &amp; &#65; &#0;\" content-desc=\"A & B\" class=\"android.widget.TextView\" bounds=\"[0,0][100,40]\"/>\
+            </hierarchy>UI hierchary dumped to: /dev/tty\n";
+        let nodes = compact_nodes(noisy).unwrap();
+        assert_eq!(nodes.len(), 1);
+        assert_eq!(nodes[0].text.as_deref(), Some("AT&T <Live> & A &#0;"));
+        assert_eq!(nodes[0].desc.as_deref(), Some("A & B"));
     }
 }
