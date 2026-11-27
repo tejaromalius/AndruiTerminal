@@ -415,6 +415,9 @@ async fn get_hierarchy(client: &ApiClient, args: &Map<String, Value>) -> ToolRes
 
 async fn screenshot(client: &ApiClient, args: &Map<String, Value>) -> ToolResult<Vec<Value>> {
     let mut query = device_query(args)?;
+    if let Some(fallback) = args.get("fallback").and_then(Value::as_bool) {
+        query.push(("fallback", fallback.to_string()));
+    }
     if args.get("marks").and_then(Value::as_bool).unwrap_or(false) {
         query.push(("marks", "true".to_string()));
         query.push(("format", "json".to_string()));

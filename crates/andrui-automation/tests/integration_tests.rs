@@ -1725,3 +1725,81 @@ async fn test_new_actions_clear_text_press_key_swipe() {
 
     assert_eq!(count.load(Ordering::SeqCst), 4);
 }
+
+#[tokio::test]
+async fn test_screenshot_adb_fallback_and_marks_without_session() {
+    use base64::prelude::*;
+    use std::os::unix::fs::PermissionsExt;
+
+    let temp_dir = TempDir::new().unwrap();
+    let png_path = temp_dir.path().join("screen.png");
+    let png_bytes = BASE64_STANDARD
+        .decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=")
+        .unwrap();
+    std::fs::write(&png_path, &png_bytes).unwrap();
+
+    let adb_script = temp_dir.path().join("mock-adb.sh");
+    let script_body = format!(
+        r#"#!/bin/sh
+if [ "$3" = "exec-out" ] && [ "$4" = "screencap" ]; then
+  cat "{}"
+  exit 0
+fi
+if [ "$3" = "exec-out" ] && [ "$4" = "uiautomator" ]; then
+  printf '<?xml version="1.0" encoding="UTF-8"?><hierarchy rotation="0"><node text="OK" class="android.widget.Button" clickable="true" bounds="[0,0][1,1]"/></hierarchy>'
+  exit 0
+fi
+exit 1
+"#,
+        png_path.display()
+    );
+    std::fs::write(&adb_script, script_body).unwrap();
+    std::fs::set_permissions(&adb_script, std::fs::Permissions::from_mode(0o755)).unwrap();
+
+    let mut state = create_test_state(&temp_dir);
+    state.config = andrui_automation::config::ExtensionsConfig {
+        adb_path: adb_script,
+        data_dir: state.config.data_dir.clone(),
+        helper_apk: state.config.helper_apk.clone(),
+    };
+    let app = router_with_state(state);
+
+    // 1. Plain screenshot without active session falls back to adb screencap
+    let req = Request::builder()
+        .uri("/api/v1/automation/screenshot?deviceId=adb-dev-1")
+        .body(Body::empty())
+        .unwrap();
+    let resp = app.clone().oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(
+        resp.headers().get(header::CONTENT_TYPE).unwrap(),
+        "image/png"
+    );
+    let body = to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+    assert_eq!(&body[0..8], b"\x89PNG\r\n\x1a\n");
+
+    // 2. Marked screenshot without active session uses adb screencap + uiautomator dump fallback
+    let req_marks = Request::builder()
+        .uri("/api/v1/automation/screenshot?deviceId=adb-dev-1&marks=true&format=json")
+        .body(Body::empty())
+        .unwrap();
+    let resp_marks = app.clone().oneshot(req_marks).await.unwrap();
+    assert_eq!(resp_marks.status(), StatusCode::OK);
+    let json: Value =
+        serde_json::from_slice(&to_bytes(resp_marks.into_body(), usize::MAX).await.unwrap())
+            .unwrap();
+    let marked_png = BASE64_STANDARD
+        .decode(json["pngBase64"].as_str().unwrap())
+        .unwrap();
+    assert_eq!(&marked_png[0..8], b"\x89PNG\r\n\x1a\n");
+    assert_eq!(json["nodes"].as_array().unwrap().len(), 1);
+    assert_eq!(json["nodes"][0]["text"], "OK");
+
+    // 3. Explicit fallback=false still returns 404 session_not_found
+    let req_no_fallback = Request::builder()
+        .uri("/api/v1/automation/screenshot?deviceId=adb-dev-1&fallback=false")
+        .body(Body::empty())
+        .unwrap();
+    let resp_no_fallback = app.oneshot(req_no_fallback).await.unwrap();
+    assert_eq!(resp_no_fallback.status(), StatusCode::NOT_FOUND);
+}

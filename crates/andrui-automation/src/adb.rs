@@ -392,4 +392,43 @@ impl AdbExecutor {
 
         Ok(dump)
     }
+
+    /// Capture a PNG screenshot via `adb -s <device_id> exec-out screencap -p` as a fallback
+    /// when no automation helper session is active.
+    pub async fn capture_screenshot_fallback(
+        adb_path: &Path,
+        device_id: &str,
+    ) -> Result<Vec<u8>, ApiError> {
+        let mut cmd = Command::new(adb_path);
+        cmd.args(["-s", device_id, "exec-out", "screencap", "-p"]);
+
+        let output = Self::run_command_bounded(
+            cmd,
+            Duration::from_secs(15),
+            32 * 1024 * 1024,
+            1024 * 1024,
+        )
+        .await?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(ApiError::bad_request(
+                "screencap_failed",
+                format!(
+                    "adb screencap failed (status: {}): {}",
+                    output.status,
+                    stderr.trim()
+                ),
+            ));
+        }
+
+        if !output.stdout.starts_with(b"\x89PNG\r\n\x1a\n") {
+            return Err(ApiError::bad_request(
+                "screencap_invalid",
+                "adb screencap did not return valid PNG data",
+            ));
+        }
+
+        Ok(output.stdout)
+    }
 }
